@@ -127,10 +127,7 @@ public:
 		    mStack.back().bindStmt(castexpr, val );
 	    }
     }
-    void returnStmt(ReturnStmt * returnstmt){
-    	mStack.back().setPC(returnstmt);
 
-    }
 
     /// !TODO Support Function Call
     void call(CallExpr * callexpr) {
@@ -145,7 +142,7 @@ public:
 	    } else if (callee == mOutput) {
 		    Expr * decl = callexpr->getArg(0);
 		    val = mStack.back().getStmtVal(decl);
-		    llvm::errs() << val;
+		    llvm::errs() << val << '\n';
 	    } else {
 		    StackFrame calleeStack = StackFrame();
 		    int nargs=callexpr->getNumArgs();
@@ -159,6 +156,25 @@ public:
 		    /// You could add your code here for Function call Return
 	    }
     }
+
+    void returnStmt(ReturnStmt * returnstmt){
+    	mStack.back().setPC(returnstmt);
+    	StackFrame& callerStack = mStack.rbegin()[1];
+    	if(Expr* retvalExpr = returnstmt->getRetValue()){
+    		int val = mStack.back().getStmtVal(retvalExpr);
+    		callerStack.bindStmt(callerStack.getPC(),val);
+    	}
+    }
+    void popmStack(){
+    	mStack.pop_back();
+    }
+
+    void integerLiteral(IntegerLiteral * intl){
+    	Stmt * intstmt = (Stmt *)(intl);
+    	int val = intl->getValue().getLimitedValue();
+    	mStack.back().bindStmt(intstmt,val);
+    }
+
 };
 
 

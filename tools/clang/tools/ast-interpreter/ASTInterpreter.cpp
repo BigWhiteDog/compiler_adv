@@ -36,10 +36,21 @@ public:
 	    if (call->getDirectCallee()->hasBody())
 	    {
 	    	VisitStmt(call->getDirectCallee()->getBody());
+	    	mEnv->popmStack();
 	    }
     }
     virtual void VisitDeclStmt(DeclStmt * declstmt) {
 	    mEnv->decl(declstmt);
+    }
+    virtual void VisitReturnStmt(ReturnStmt * returnstmt){
+    	VisitStmt(returnstmt);
+    	mEnv->returnStmt(returnstmt);
+    }
+    virtual void VisitIfStmt(IfStmt * ifstmt){
+    	llvm::errs() << "if! \n";
+    }
+    virtual void VisitIntegerLiteral(IntegerLiteral * intl){
+    	mEnv->integerLiteral(intl);
     }
 private:
     Environment * mEnv;
