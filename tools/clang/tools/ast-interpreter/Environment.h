@@ -98,7 +98,9 @@ public:
 		    if (DeclRefExpr * declexpr = dyn_cast<DeclRefExpr>(left)) {
 			    Decl * decl = declexpr->getFoundDecl();
 			    mStack.back().bindDecl(decl, val);
+			    mStack.back().bindStmt(bop,val);
 		    }
+
 	    }
 	    else
 	    {
@@ -149,7 +151,12 @@ public:
 			    it != ie; ++ it) {
 		    Decl * decl = *it;
 		    if (VarDecl * vardecl = dyn_cast<VarDecl>(decl)) {
-			    mStack.back().bindDecl(vardecl, 0);
+			    if(vardecl->hasInit()){
+			    	int ival = mStack.back().getStmtVal(vardecl->getInit());
+			    	mStack.back().bindDecl(vardecl,ival);
+			    }
+			    else
+			    	mStack.back().bindDecl(vardecl, 0);
 		    }
 	    }
     }

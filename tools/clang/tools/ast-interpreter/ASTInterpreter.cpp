@@ -40,6 +40,7 @@ public:
 	    }
     }
     virtual void VisitDeclStmt(DeclStmt * declstmt) {
+        VisitStmt(declstmt);
 	    mEnv->decl(declstmt);
     }
     virtual void VisitReturnStmt(ReturnStmt * returnstmt){
