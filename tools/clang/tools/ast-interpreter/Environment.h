@@ -87,6 +87,8 @@ public:
 
     /// !TODO Support comparison operation
     void binop(BinaryOperator *bop) {
+    	mStack.back().setPC(bop);
+
 	    Expr * left = bop->getLHS();
 	    Expr * right = bop->getRHS();
 
@@ -97,6 +99,48 @@ public:
 			    Decl * decl = declexpr->getFoundDecl();
 			    mStack.back().bindDecl(decl, val);
 		    }
+	    }
+	    else
+	    {
+	    	int lval = mStack.back().getStmtVal(left);
+	    	int rval = mStack.back().getStmtVal(right);
+	    	int bopval = 0;
+	    	switch(bop-> getOpcode()){
+	    		case BO_EQ:{
+	    			if (lval==rval)
+	    				bopval=1;
+	    			break;
+	    		}
+	    		case BO_LT:{
+	    			if (lval<rval)
+	    				bopval=1;
+	    			break;
+	    		}
+	    		case BO_GT:{
+	    			if (lval>rval)
+	    				bopval=1;
+	    			break;
+	    		}
+	    		case BO_Add:{
+	    			bopval=lval+rval;
+	    			break;
+	    		}
+	    		case BO_Sub:{
+	    			bopval=lval-rval;
+	    			break;
+	    		}
+	    		case BO_Mul:{
+	    			bopval=lval*rval;
+	    			break;
+	    		}
+	    		case BO_Div:{
+	    			bopval=lval/rval;
+	    			break;
+	    		}
+	    		default:
+	    			;
+	    	}
+	    	mStack.back().bindStmt(bop,bopval);
 	    }
     }
 

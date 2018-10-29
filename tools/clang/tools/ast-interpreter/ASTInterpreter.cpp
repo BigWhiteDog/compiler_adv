@@ -47,7 +47,7 @@ public:
     	mEnv->returnStmt(returnstmt);
     }
     virtual void VisitIfStmt(IfStmt * ifstmt){
-    	llvm::errs() << "if! \n";
+    	//llvm::errs() << "if! \n";
     }
     virtual void VisitIntegerLiteral(IntegerLiteral * intl){
     	mEnv->integerLiteral(intl);
