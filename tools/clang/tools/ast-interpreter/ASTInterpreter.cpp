@@ -48,7 +48,43 @@ public:
     	mEnv->returnStmt(returnstmt);
     }
     virtual void VisitIfStmt(IfStmt * ifstmt){
-    	//llvm::errs() << "if! \n";
+        Visit(ifstmt->getCond());
+        if(mEnv->getCondVal(ifstmt->getCond())){
+            Visit(ifstmt->getThen());
+        }
+        else if(ifstmt->getElse()){
+            Visit(ifstmt->getElse());
+        }
+    }
+    virtual void VisitWhileStmt(WhileStmt * whilestmt){
+        Stmt* condstmt = whilestmt->getCond();
+        Stmt* bodystmt = whilestmt->getBody();
+        
+        Visit(condstmt);//get first cond val
+        while(mEnv->getCondVal(condstmt))
+        {
+            if(bodystmt) Visit(bodystmt);
+            Visit(condstmt);//update cond
+        }
+    }
+    virtual void VisitForStmt(ForStmt* forstmt){
+
+        Stmt* condstmt = forstmt->getCond();
+        Stmt* incstmt = forstmt->getInc();
+        Stmt* bodystmt = forstmt->getBody();
+        
+        if(forstmt->getInit())
+            Visit(forstmt->getInit());
+
+        Visit(condstmt);//get first cond val
+        while(mEnv->getCondVal(condstmt))          
+        {
+            if(bodystmt)
+                Visit(bodystmt);
+            if(incstmt)
+                Visit(incstmt);//inc stmt
+            Visit(condstmt);//update cond after inc
+        }
     }
     virtual void VisitIntegerLiteral(IntegerLiteral * intl){
     	mEnv->integerLiteral(intl);

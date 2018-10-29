@@ -226,6 +226,10 @@ public:
     	mStack.back().bindStmt(intstmt,val);
     }
 
+    int getCondVal(Stmt* condstmt){
+    	return mStack.back().getStmtVal(condstmt);
+    }
+
 };
 
 
