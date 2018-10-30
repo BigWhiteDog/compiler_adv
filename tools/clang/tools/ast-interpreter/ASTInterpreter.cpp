@@ -104,6 +104,12 @@ public:
 	    TranslationUnitDecl * decl = Context.getTranslationUnitDecl();
 	    mEnv.init(decl);
 
+        Heap& mHeap = mEnv.mHeap;//visit init stmt
+        for(auto x :mHeap.mVarsInit){
+        	mVisitor.Visit( x.second );
+        }
+        mEnv.initGlobal();//set initial value
+
 	    FunctionDecl * entry = mEnv.getEntry();
 	    mVisitor.VisitStmt(entry->getBody());
   }
