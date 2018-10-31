@@ -19,33 +19,33 @@ public:
     virtual ~InterpreterVisitor() {}
 
     virtual void VisitBinaryOperator (BinaryOperator * bop) {
-	    VisitStmt(bop);
-	    mEnv->binop(bop);
+        VisitStmt(bop);
+        mEnv->binop(bop);
     }
     virtual void VisitDeclRefExpr(DeclRefExpr * expr) {
-	    VisitStmt(expr);
-	    mEnv->declref(expr);
+        VisitStmt(expr);
+        mEnv->declref(expr);
     }
     virtual void VisitCastExpr(CastExpr * expr) {
-	    VisitStmt(expr);
-	    mEnv->cast(expr);
+        VisitStmt(expr);
+        mEnv->cast(expr);
     }
     virtual void VisitCallExpr(CallExpr * call) {
-	    VisitStmt(call);
-	    mEnv->call(call);
-	    if (call->getDirectCallee()->hasBody())
-	    {
-	    	VisitStmt(call->getDirectCallee()->getBody());
-	    	mEnv->popmStack();
-	    }
+        VisitStmt(call);
+        mEnv->call(call);
+        if (call->getDirectCallee()->hasBody())
+        {
+            VisitStmt(call->getDirectCallee()->getBody());
+            mEnv->popmStack();
+        }
     }
     virtual void VisitDeclStmt(DeclStmt * declstmt) {
         VisitStmt(declstmt);
-	    mEnv->decl(declstmt);
+        mEnv->decl(declstmt);
     }
     virtual void VisitReturnStmt(ReturnStmt * returnstmt){
-    	VisitStmt(returnstmt);
-    	mEnv->returnStmt(returnstmt);
+        VisitStmt(returnstmt);
+        mEnv->returnStmt(returnstmt);
     }
     virtual void VisitIfStmt(IfStmt * ifstmt){
         Visit(ifstmt->getCond());
@@ -87,7 +87,13 @@ public:
         }
     }
     virtual void VisitIntegerLiteral(IntegerLiteral * intl){
-    	mEnv->integerLiteral(intl);
+        mEnv->integerLiteral(intl);
+    }
+    virtual void VisitCharacterLiteral(CharacterLiteral * charl){
+        mEnv->characterLiteral(charl);
+    }
+    virtual void VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr* uexpr){
+        mEnv->unaryExprOrTypeTraitExpr(uexpr);
     }
 private:
     Environment * mEnv;
@@ -96,23 +102,23 @@ private:
 class InterpreterConsumer : public ASTConsumer {
 public:
     explicit InterpreterConsumer(const ASTContext& context) : mEnv(),
-    	    mVisitor(context, &mEnv) {
+            mVisitor(context, &mEnv) {
     }
     virtual ~InterpreterConsumer() {}
 
     virtual void HandleTranslationUnit(clang::ASTContext &Context) {
-	    TranslationUnitDecl * decl = Context.getTranslationUnitDecl();
-	    mEnv.init(decl);
+        TranslationUnitDecl * decl = Context.getTranslationUnitDecl();
+        mEnv.init(decl);
 
         Heap& mHeap = mEnv.mHeap;//visit init stmt
         for(auto x :mHeap.mVarsInit){
-        	mVisitor.Visit( x.second );
+            mVisitor.Visit( x.second );
         }
         mEnv.initGlobal();//set initial value
 
-	    FunctionDecl * entry = mEnv.getEntry();
-	    mVisitor.VisitStmt(entry->getBody());
-  }
+        FunctionDecl * entry = mEnv.getEntry();
+        mVisitor.VisitStmt(entry->getBody());
+    }
 private:
     Environment mEnv;
     InterpreterVisitor mVisitor;
