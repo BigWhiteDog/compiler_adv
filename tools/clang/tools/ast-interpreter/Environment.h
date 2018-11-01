@@ -22,6 +22,9 @@ class StackFrame {
 public:
     StackFrame() : mVars(), mExprs(), mPC() {
     }
+    ~StackFrame(){
+
+    }
 
     bool hasDecl(Decl *decl){
         return mVars.find(decl) != mVars.end();
@@ -30,13 +33,21 @@ public:
       mVars[decl] = val;
     }
     int64_t getDeclVal(Decl * decl) {
-      assert (mVars.find(decl) != mVars.end());
-      return mVars.find(decl)->second;
+        if(mVars.find(decl) == mVars.end())
+        {
+            decl->dump();
+        }
+        assert (mVars.find(decl) != mVars.end());
+        return mVars.find(decl)->second;
     }
     void bindStmt(Stmt * stmt, int64_t val) {
         mExprs[stmt] = val;
     }
     int64_t getStmtVal(Stmt * stmt) {
+        if(mExprs.find(stmt) == mExprs.end())
+        {
+            stmt->dump();
+        }
         assert (mExprs.find(stmt) != mExprs.end());
         return mExprs[stmt];
     }
@@ -55,17 +66,24 @@ class Heap {
 public:
     std::map<Decl*, int64_t> mVars;
     std::map<Decl*, Stmt*> mVarsInit;
-    Heap() : mVars() ,mVarsInit(){
+    
+    std::vector<void*> mPtrs;
+
+    Heap() : mVars() ,mVarsInit(),mPtrs(){
+    }
+    ~Heap(){
+        for(auto x : mPtrs)
+            free(x);
     }
     bool hasDecl(Decl *decl){
         return mVars.find(decl) != mVars.end();
     }
     void bindDecl(Decl* decl, int64_t val) {
-      mVars[decl] = val;
+        mVars[decl] = val;
     }
     int64_t getDeclVal(Decl * decl) {
-      assert (mVars.find(decl) != mVars.end());
-      return mVars.find(decl)->second;
+        assert (mVars.find(decl) != mVars.end());
+        return mVars.find(decl)->second;
     }
     void bindInitStmt(Decl * decl, Stmt* val) {
         mVarsInit[decl] = val;
@@ -95,7 +113,6 @@ public:
     Environment() : mFree(NULL), mMalloc(NULL), mInput(NULL), mOutput(NULL), mEntry(NULL), mStack(), mHeap() {
     }
 
-
     /// Initialize the Environment
     void init(TranslationUnitDecl * unit) {
         for (TranslationUnitDecl::decl_iterator i =unit->decls_begin(), e = unit->decls_end(); i != e; ++ i) {
@@ -105,7 +122,7 @@ public:
                 else if (fdecl->getName().equals("GET")) mInput = fdecl;
                 else if (fdecl->getName().equals("PRINT")) mOutput = fdecl;
                 else if (fdecl->getName().equals("main")) mEntry = fdecl;
-            }else if (VarDecl * vardecl = dyn_cast<VarDecl>(*i) ){
+            }else if (VarDecl * vardecl = dyn_cast<VarDecl>(*i) ){//WIP: support array
                 if (vardecl->hasInit())
                     mHeap.bindInitStmt(vardecl,vardecl->getInit());
                 else
@@ -133,69 +150,117 @@ public:
 
         Expr * left = bop->getLHS();
         Expr * right = bop->getRHS();
-
+        int64_t val=0;
+        int64_t lval,rval;
         if (bop->isAssignmentOp()) {
-            int64_t val = mStack.back().getStmtVal(right);
-            mStack.back().bindStmt(left, val);
+            rval = mStack.back().getStmtVal(right);
+            mStack.back().bindStmt(left, rval);
             if (DeclRefExpr * declexpr = dyn_cast<DeclRefExpr>(left)) {
                 Decl * decl = declexpr->getFoundDecl();
                 if(mStack.back().hasDecl(decl))
-                    mStack.back().bindDecl(decl, val);
+                    mStack.back().bindDecl(decl, rval);
                 else if(mHeap.hasDecl(decl))
-                    mHeap.bindDecl(decl,val);
+                    mHeap.bindDecl(decl,rval);
             }
-            else{
-
+            else if(UnaryOperator *unop = dyn_cast<UnaryOperator>(left)){//is * operator
+                int64_t ptr_val = mStack.back().getStmtVal(unop->getSubExpr());
+                QualType pointee_type = unop->getSubExpr()->getType()->getPointeeType();
+                if(pointee_type->isCharType()){
+                    char * temp_ptr = (char*)ptr_val;
+                    *temp_ptr = (char)rval;
+                }
+                else if(pointee_type->isIntegerType()){//note that char type is also an integertype
+                    int64_t * temp_ptr = (int64_t*)ptr_val;
+                    *temp_ptr = rval;
+                }
+                else if (pointee_type->isPointerType()){
+                    void ** temp_ptr = (void**)ptr_val;
+                    *temp_ptr = (void*)rval;
+                }
             }
-            mStack.back().bindStmt(bop,val);
         }
         else
         {
-            int64_t lval = mStack.back().getStmtVal(left);
-            int64_t rval = mStack.back().getStmtVal(right);
-            int64_t bopval = 0;
+            lval = mStack.back().getStmtVal(left);
+            rval = mStack.back().getStmtVal(right);
             switch(bop-> getOpcode()){
                 case BO_EQ:{
                     if (lval==rval)
-                        bopval=1;
+                        val=1;
                     break;
                 }
                 case BO_LT:{
                     if (lval<rval)
-                        bopval=1;
+                        val=1;
                     break;
                 }
                 case BO_GT:{
                     if (lval>rval)
-                        bopval=1;
+                        val=1;
                     break;
                 }
-                case BO_Add:{
-                    bopval=lval+rval;
+                case BO_Add:{//WIP:support pointer add
+                    Expr* lrexpr[2];
+                    lrexpr[0]=left;
+                    lrexpr[1]=right;
+                    uint c[2]={1,1};//factor of values
+                    for (uint i = 0; i < 2; ++i)
+                    {
+                        if (lrexpr[i]->getType()->isPointerType()){
+                            QualType pointee_type = lrexpr[i]->getType()->getPointeeType();
+                            if(pointee_type->isCharType()){//change the other factor
+                                c[i^1]=1;
+                            }else if(pointee_type->isIntegerType()){
+                                c[i^1]=8;
+                            }
+                            else if(pointee_type->isPointerType()){
+                                c[i^1]=8;
+                            }
+                        }
+                    }   
+                    val=lval*c[0]+rval*c[1];
                     break;
                 }
                 case BO_Sub:{
-                    bopval=lval-rval;
+                    val=lval-rval;
                     break;
                 }
                 case BO_Mul:{
-                    bopval=lval*rval;
+                    val=lval*rval;
                     break;
                 }
                 case BO_Div:{
-                    bopval=lval/rval;
+                    val=lval/rval;
                     break;
                 }
                 default:
                     ;
             }
-            mStack.back().bindStmt(bop,bopval);
         }
+        mStack.back().bindStmt(bop,val);
     }
 
     void unop(UnaryOperator *uop) {
         mStack.back().setPC(uop);
         Expr *subexpr = uop->getSubExpr();
+        assert(uop->getOpcode() == UO_Deref);
+        int64_t ptr_val = mStack.back().getStmtVal(subexpr);
+        int64_t val;
+        assert(subexpr->getType()->isPointerType());
+        QualType pointee_type=subexpr->getType()->getPointeeType();
+        if(pointee_type->isCharType()){
+            char * temp_ptr = (char*)ptr_val;
+            val = *temp_ptr;
+        }
+        else if(pointee_type->isIntegerType()){//note that char type is also an integertype
+            int64_t * temp_ptr = (int64_t *)ptr_val;
+            val = *temp_ptr;
+        }
+        else if (pointee_type->isPointerType()){
+            void ** temp_ptr = (void**)ptr_val;
+            val = (int64_t) *temp_ptr;
+        }
+        mStack.back().bindStmt(uop,val);
     }
 
     void decl(DeclStmt * declstmt) {
@@ -214,15 +279,13 @@ public:
     }
     void declref(DeclRefExpr * declref) {
         mStack.back().setPC(declref);
-        if (declref->getType()->isIntegerType()) {
+        if (declref->getType()->isIntegerType() || declref->getType()->isPointerType()) {
             Decl* decl = declref->getFoundDecl();
-
             int64_t val;
             if (mHeap.hasDecl(decl))//check if in the heap
                 val = mHeap.getDeclVal(decl);
             else
                 val = mStack.back().getDeclVal(decl);
-
             mStack.back().bindStmt(declref, val);
         }
     }
@@ -266,12 +329,17 @@ public:
             Expr * para = callexpr->getArg(0);
             val = mStack.back().getStmtVal(para);
             void * ptr = malloc(val);
+            mHeap.mPtrs.push_back(ptr);//record in heap ptrs
             int64_t ptr_val = (int64_t)ptr;
-            mStack.back().bindStmt(para,ptr_val);
+            mStack.back().bindStmt(callexpr,ptr_val);
         } else if (callee == mFree){
             Expr * para = callexpr->getArg(0);
             val = mStack.back().getStmtVal(para);
             void * ptr = (void*)val;
+            std::vector<void*>::iterator pit;
+            pit = find(mHeap.mPtrs.begin(), mHeap.mPtrs.end(), ptr);
+            assert(pit != mHeap.mPtrs.end());
+            mHeap.mPtrs.erase(pit);
             free(ptr);
         }
         else {
@@ -290,14 +358,14 @@ public:
 
     void returnStmt(ReturnStmt * returnstmt){
         mStack.back().setPC(returnstmt);
+        if(mStack.size()==1){//main return
+
+        }
         StackFrame& callerStack = mStack.rbegin()[1];
         if(Expr* retvalExpr = returnstmt->getRetValue()){
             int64_t val = mStack.back().getStmtVal(retvalExpr);
             callerStack.bindStmt(callerStack.getPC(),val);
         }
-    }
-    void popmStack(){
-        mStack.pop_back();
     }
 
     void integerLiteral(IntegerLiteral * intl){
@@ -320,9 +388,11 @@ public:
             else if (uexpr->getArgumentType()->isPointerType()){
                 mStack.back().bindStmt(uexpr,8);
             }
-
         }
-
+    }
+    void parenExpr(ParenExpr* pe){//() just pass value
+        int64_t val = mStack.back().getStmtVal(pe->getSubExpr());
+        mStack.back().bindStmt(pe,val);
     }
 
     int64_t getCondVal(Stmt* condstmt){

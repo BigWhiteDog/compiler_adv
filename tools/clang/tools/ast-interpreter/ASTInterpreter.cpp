@@ -22,6 +22,10 @@ public:
         VisitStmt(bop);
         mEnv->binop(bop);
     }
+    virtual void VisitUnaryOperator (UnaryOperator * uop) {
+        VisitStmt(uop);
+        mEnv->unop(uop);
+    }
     virtual void VisitDeclRefExpr(DeclRefExpr * expr) {
         VisitStmt(expr);
         mEnv->declref(expr);
@@ -36,7 +40,7 @@ public:
         if (call->getDirectCallee()->hasBody())
         {
             VisitStmt(call->getDirectCallee()->getBody());
-            mEnv->popmStack();
+            mEnv->mStack.pop_back();
         }
     }
     virtual void VisitDeclStmt(DeclStmt * declstmt) {
@@ -85,6 +89,10 @@ public:
                 Visit(incstmt);//inc stmt
             Visit(condstmt);//update cond after inc
         }
+    }
+    virtual void VisitParenExpr(ParenExpr * pe){
+        VisitStmt(pe);
+        mEnv->parenExpr(pe);
     }
     virtual void VisitIntegerLiteral(IntegerLiteral * intl){
         mEnv->integerLiteral(intl);
