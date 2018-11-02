@@ -90,15 +90,21 @@ public:
             Visit(condstmt);//update cond after inc
         }
     }
+
+    virtual void VisitArraySubscriptExpr(ArraySubscriptExpr* arraysub){
+        VisitStmt(arraysub);
+        mEnv->arraySubscriptExpr(arraysub);
+    }
+
     virtual void VisitParenExpr(ParenExpr * pe){
         VisitStmt(pe);
         mEnv->parenExpr(pe);
     }
     virtual void VisitIntegerLiteral(IntegerLiteral * intl){
-        mEnv->integerLiteral(intl);
+        mEnv->Literal(intl);
     }
     virtual void VisitCharacterLiteral(CharacterLiteral * charl){
-        mEnv->characterLiteral(charl);
+        mEnv->Literal(charl);
     }
     virtual void VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr* uexpr){
         mEnv->unaryExprOrTypeTraitExpr(uexpr);
