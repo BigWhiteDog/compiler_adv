@@ -252,22 +252,25 @@ public:
     void unop(UnaryOperator *uop) {
         mStack.back().setPC(uop);
         Expr *subexpr = uop->getSubExpr();
-        assert(uop->getOpcode() == UO_Deref);
         int64_t ptr_val = mStack.back().getStmtVal(subexpr);
         int64_t val;
-        assert(subexpr->getType()->isPointerType());
-        QualType pointee_type=subexpr->getType()->getPointeeType();
-        if(pointee_type->isCharType()){
-            char * temp_ptr = (char*)ptr_val;
-            val = *temp_ptr;
-        }
-        else if(pointee_type->isIntegerType()){//note that char type is also an integertype
-            int64_t * temp_ptr = (int64_t *)ptr_val;
-            val = *temp_ptr;
-        }
-        else if (pointee_type->isPointerType()){
-            void ** temp_ptr = (void**)ptr_val;
-            val = (int64_t) *temp_ptr;
+        if(uop->getOpcode() == UO_Deref){
+            assert(subexpr->getType()->isPointerType());
+            QualType pointee_type=subexpr->getType()->getPointeeType();
+            if(pointee_type->isCharType()){
+                char * temp_ptr = (char*)ptr_val;
+                val = *temp_ptr;
+            }
+            else if(pointee_type->isIntegerType()){//note that char type is also an integertype
+                int64_t * temp_ptr = (int64_t *)ptr_val;
+                val = *temp_ptr;
+            }
+            else if (pointee_type->isPointerType()){
+                void ** temp_ptr = (void**)ptr_val;
+                val = (int64_t) *temp_ptr;
+            }
+        }else if(uop->getOpcode() == UO_Minus){
+            val = -ptr_val;
         }
         mStack.back().bindStmt(uop,val);
     }
@@ -408,7 +411,7 @@ public:
     void returnStmt(ReturnStmt * returnstmt){
         mStack.back().setPC(returnstmt);
         if(mStack.size()==1){//main return
-
+            return;
         }
         StackFrame& callerStack = mStack.rbegin()[1];
         if(Expr* retvalExpr = returnstmt->getRetValue()){
